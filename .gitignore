@@ -1,16 +1,24 @@
-# Build / scratch directories
+# Node
+node_modules/
+package-lock.json
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Build artifacts
 resume_unpacked/
-resume_verify/
-resume_verify2/
 resume_verify*/
 
 # Generated output
 *.docx
 *.pdf
 
-# Node
-node_modules/
-package-lock.json
+# Env
+.env
+.env.local
+.env*.local
 
 # OS
 .DS_Store
@@ -20,3 +28,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Claude session state
+.claude/
