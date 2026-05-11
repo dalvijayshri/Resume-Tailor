@@ -15,6 +15,9 @@ resume_verify*/
 *.docx
 *.pdf
 
+# Pre-generated static downloads (produced by scripts/prebuild.mjs)
+public/downloads/
+
 # Env
 .env
 .env.local

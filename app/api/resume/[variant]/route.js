@@ -22,7 +22,7 @@ export async function GET(_request, { params }) {
     headers: {
       'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'content-disposition': `attachment; filename="${builder.meta.filename}"`,
-      'cache-control': 'no-store',
+      'cache-control': 'public, max-age=3600',
     },
   });
 }
