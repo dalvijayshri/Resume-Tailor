@@ -1,0 +1,22 @@
+# Build / scratch directories
+resume_unpacked/
+resume_verify/
+resume_verify2/
+resume_verify*/
+
+# Generated output
+*.docx
+*.pdf
+
+# Node
+node_modules/
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
