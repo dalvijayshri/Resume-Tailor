@@ -30,7 +30,12 @@ export async function POST(request) {
     return jsonError(`Failed to build document: ${err?.message ?? 'unknown error'}`, 500);
   }
 
-  const filename = buildFilename(payload);
+  // Platform comes in as a query param (?platform=linkedin) so it doesn't
+  // pollute the TailoredResume body schema.
+  const url = new URL(request.url);
+  const platform = url.searchParams.get('platform') || '';
+
+  const filename = buildFilename(payload, platform);
 
   return new Response(buffer, {
     status: 200,
@@ -45,23 +50,45 @@ export async function POST(request) {
 /**
  * Build a unique filename for the tailored resume.
  *
- * Format: "<First-Last>_<Company>_<Role>.docx"
- *   e.g. "Jayshri-Dalvi_LEvate_Senior-NET-Software-Developer.docx"
+ * Format: "<First-Last>_<Platform>_<Company>_<Role>.docx"
+ *   e.g. "Jayshri-Dalvi_LinkedIn_LEvate_Senior-.NET-Software-Developer.docx"
  *
- * Three sections separated by underscores; within each section, words are
+ * Four sections separated by underscores; within each section, words are
  * joined with hyphens. This makes the filename visually parseable in Explorer
- * / Finder (you can tell at a glance which part is the company vs the role)
- * while staying safe across Windows/macOS/Linux.
+ * / Finder (you can tell at a glance which is candidate / platform / company
+ * / role) while staying safe across Windows/macOS/Linux.
+ *
+ * Platform is title-cased: linkedin -> LinkedIn, upwork -> Upwork, etc.
  */
-function buildFilename(payload) {
+function buildFilename(payload, platform) {
   const personPart = filenamePart(payload.name || '', 'Resume');
+  const platformPart = prettifyPlatform(platform);
   const companyPart = filenamePart(payload.targetCompany || '', 'Company');
   let rolePart = filenamePart(payload.targetRole || payload.title || '', 'Role');
 
-  // Cap length so the filename stays reasonable.
+  // Cap role length so the filename stays reasonable.
   if (rolePart.length > 60) rolePart = rolePart.slice(0, 60).replace(/-+$/, '');
 
-  return `${personPart}_${companyPart}_${rolePart}.docx`;
+  return `${personPart}_${platformPart}_${companyPart}_${rolePart}.docx`;
+}
+
+/**
+ * Map the lowercase platform id used by the API to a nicer display form
+ * suitable for a filename section.
+ */
+function prettifyPlatform(p) {
+  const PRETTY = {
+    linkedin: 'LinkedIn',
+    upwork: 'Upwork',
+    freelancer: 'Freelancer',
+    hubstaff: 'Hubstaff',
+    other: 'Other',
+  };
+  const key = String(p || '').trim().toLowerCase();
+  if (PRETTY[key]) return PRETTY[key];
+  // Fallback: title-case whatever was passed.
+  const cleaned = filenamePart(p, 'Platform');
+  return cleaned;
 }
 
 /**

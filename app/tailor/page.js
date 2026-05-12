@@ -168,7 +168,10 @@ export default function TailorPage() {
     setDownloadingDocx(true);
     setError('');
     try {
-      const res = await fetch('/api/tailor/docx', {
+      // Pass the platform as a query param so the server can include it in
+      // the filename (e.g. Jayshri-Dalvi_LinkedIn_LEvate_Senior-.NET-Dev.docx).
+      const url = `/api/tailor/docx?platform=${encodeURIComponent(platform)}`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(result.tailoredResume),
@@ -181,13 +184,33 @@ export default function TailorPage() {
         } catch (_) { /* ignore */ }
         throw new Error(msg);
       }
+      // Honour whatever filename the server built — it includes platform,
+      // company, and role parsed from the JD.
+      const filename =
+        filenameFromContentDisposition(res.headers.get('content-disposition')) ||
+        'Tailored-Resume.docx';
       const blob = await res.blob();
-      triggerBlobDownload(blob, 'Jayshri-Dalvi-Tailored-Resume.docx');
+      triggerBlobDownload(blob, filename);
     } catch (err) {
       setError(err.message || 'Download failed');
     } finally {
       setDownloadingDocx(false);
     }
+  }
+
+  /**
+   * Parse the filename out of a Content-Disposition response header. Handles
+   * both the plain `filename="..."` form and RFC 5987 `filename*=UTF-8''...`.
+   */
+  function filenameFromContentDisposition(header) {
+    if (!header) return null;
+    const star = /filename\*\s*=\s*[^']*''([^;]+)/i.exec(header);
+    if (star) {
+      try { return decodeURIComponent(star[1].replace(/^"|"$/g, '').trim()); } catch (_) { /* fall through */ }
+    }
+    const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(header);
+    if (plain) return plain[1].trim();
+    return null;
   }
 
   function handleDownloadProposalTxt() {
