@@ -270,6 +270,55 @@ a:hover { text-decoration: underline; }
 
 /* === /tailor page === */
 
+/* Tailor shell — replaces .container for the /tailor route.
+   At desktop (>=768px) we constrain ourselves to one viewport: hero (~60px),
+   form section (~340px), tab bar (~40px), tab panel (fills the rest with
+   internal scrolling). At mobile (<768px) we revert to normal page scroll. */
+.tailor-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .tailor-shell.has-results {
+    /* On desktop, when results are loaded we cap to one viewport and let
+       the tab panel scroll internally. Without results we still fit, but
+       we don't need the cap. */
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    gap: 10px;
+  }
+}
+
+.tailor-hero {
+  text-align: left;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.tailor-hero h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f4e79;
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.tailor-sub {
+  font-size: 13px;
+  color: #64748b;
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
 .tailor-banner {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -305,28 +354,78 @@ a:hover { text-decoration: underline; }
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 32px;
+  padding: 16px 18px;
+  flex: 0 0 auto;
+}
+
+.tailor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tailor-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .tailor-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  margin-bottom: 20px;
+  margin: 0;
+  min-width: 0;
 }
 
-.field label {
-  font-size: 14px;
+.field label,
+.inline-label {
+  font-size: 13px;
   font-weight: 600;
   color: #0f172a;
-  margin-bottom: 8px;
+  margin: 0;
+}
+
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  min-height: 26px;
+}
+
+.field-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.field-head-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.field-foot {
+  margin-top: 4px;
+  min-height: 16px;
+  font-size: 12px;
 }
 
 textarea,
 select {
   font-family: inherit;
-  font-size: 14px;
-  padding: 10px 12px;
+  font-size: 13px;
+  padding: 8px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #f8fafc;
@@ -343,17 +442,37 @@ select:focus {
 }
 
 textarea {
-  min-height: 120px;
-  line-height: 1.5;
+  min-height: 80px;
+  line-height: 1.45;
+}
+
+.tailor-textarea {
+  /* Both columns share a fixed visible height so the form total stays predictable.
+     ~10 rows visible, internal scroll for overflow. */
+  height: 200px;
+  min-height: 80px;
+  resize: vertical;
+}
+
+@media (min-width: 768px) {
+  .tailor-textarea {
+    height: 220px;
+  }
 }
 
 select {
   max-width: 240px;
 }
 
+.inline-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  max-width: 160px;
+}
+
 .link-btn {
   align-self: flex-start;
-  margin-top: 6px;
+  margin-top: 0;
   background: none;
   border: none;
   padding: 0;
@@ -374,9 +493,76 @@ select {
   flex-wrap: wrap;
 }
 
+.form-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px dashed #e2e8f0;
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.form-actions-left,
+.form-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .btn:disabled {
   background: #94a3b8;
   cursor: not-allowed;
+}
+
+/* Collapsed-form summary bar — shown after analyze, click to re-expand */
+.form-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  flex: 0 0 auto;
+}
+
+.form-summary:hover {
+  border-color: #1f4e79;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.form-summary-bits {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form-summary-bits strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.form-summary-bits .dot {
+  color: #cbd5e1;
+}
+
+.form-summary-action {
+  color: #1f4e79;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .btn-secondary {
@@ -412,22 +598,27 @@ select {
 }
 
 .results-section {
-  margin-top: 16px;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .tab-bar {
   display: flex;
   gap: 4px;
   border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   overflow-x: auto;
+  flex: 0 0 auto;
 }
 
 .tab {
   background: none;
   border: none;
-  padding: 12px 18px;
-  font-size: 14px;
+  padding: 8px 16px;
+  font-size: 13px;
   font-weight: 500;
   color: #475569;
   cursor: pointer;
@@ -445,11 +636,37 @@ select {
   border-bottom-color: #1f4e79;
 }
 
+/* Wrapper that holds the active tab panel. On desktop this is the element
+   that picks up the remaining viewport height and scrolls internally. */
+.tab-panel-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
 .tab-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 24px;
+  padding: 18px 20px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* On mobile, let the page scroll normally — don't force internal scrolling. */
+@media (max-width: 767px) {
+  .tab-panel {
+    overflow-y: visible;
+    max-height: none;
+  }
+}
+
+.tailor-footer {
+  margin-top: 12px;
+  flex: 0 0 auto;
 }
 
 /* Match analysis */
@@ -1050,14 +1267,14 @@ select {
   .learn-list li { color: #e2e8f0; }
 }
 
-/* === Resume file upload (above textarea on /tailor) === */
+/* === Resume file upload (inline with the resume field on /tailor) === */
 
 .upload-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .upload-btn {
@@ -1083,13 +1300,13 @@ select {
 }
 
 .upload-status {
-  font-size: 13px;
+  font-size: 12px;
   color: #475569;
   font-style: italic;
 }
 
 .upload-info {
-  font-size: 13px;
+  font-size: 12px;
   color: #166534;
   font-weight: 500;
 }
@@ -1097,11 +1314,31 @@ select {
 .upload-hint {
   font-size: 12px;
   color: #94a3b8;
-  margin-bottom: 8px;
+  margin: 0;
 }
 
 @media (prefers-color-scheme: dark) {
   .upload-status { color: #cbd5e1; }
   .upload-info { color: #86efac; }
   .upload-hint { color: #94a3b8; }
+
+  .tailor-hero h1 { color: #60a5fa; }
+  .tailor-sub { color: #94a3b8; }
+
+  .form-summary {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+  }
+  .form-summary:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .form-summary-bits strong { color: #f1f5f9; }
+  .form-summary-bits .dot { color: #475569; }
+  .form-summary-action { color: #60a5fa; }
+
+  .form-actions-row { border-top-color: #334155; }
+  .inline-label { color: #f1f5f9; }
+  .field-head-hint { color: #94a3b8; }
 }

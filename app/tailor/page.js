@@ -40,6 +40,11 @@ function verdictLabel(verdict) {
   return verdict || '';
 }
 
+function platformLabel(value) {
+  const p = PLATFORM_OPTIONS.find((x) => x.value === value);
+  return p ? p.label : value;
+}
+
 function tailoredResumeToPlainText(r) {
   if (!r) return '';
   const lines = [];
@@ -123,6 +128,10 @@ export default function TailorPage() {
   const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [copyStatus, setCopyStatus] = useState({});
 
+  // Collapse the form once we have results, to free up viewport for the
+  // tab panel. The user can click the summary bar to re-expand.
+  const [formCollapsed, setFormCollapsed] = useState(false);
+
   // File-upload state for /api/parse-resume.
   const [uploadStatus, setUploadStatus] = useState(''); // "Uploading foo.docx..." while in flight
   const [uploadInfo, setUploadInfo] = useState(''); // success line, e.g. "Loaded foo.docx (2,341 chars)"
@@ -151,7 +160,7 @@ export default function TailorPage() {
         // Only fill if the user hasn't typed anything yet.
         setResume((prev) => (prev ? prev : data.text || ''));
         setUploadInfo(
-          `✓ Loaded default resume ${DEFAULT_RESUME_FILENAME} (${(data.text || '').length.toLocaleString()} chars) — edit or replace below`
+          `✓ Loaded ${DEFAULT_RESUME_FILENAME} (${(data.text || '').length.toLocaleString()} chars)`
         );
         setTimeout(() => !cancelled && setUploadInfo(''), 8000);
       } catch (err) {
@@ -232,6 +241,8 @@ export default function TailorPage() {
       if (!res.ok) throw new Error(data.error || 'Tailoring failed');
       setResult(data);
       setActiveTab('match');
+      // Collapse the form once we have something useful below it.
+      setFormCollapsed(true);
     } catch (err) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -318,98 +329,152 @@ export default function TailorPage() {
     triggerBlobDownload(blob, 'proposal.txt');
   }
 
+  const showResults = !!result;
+  const compactForm = showResults && formCollapsed;
+
   return (
-    <main className="container">
-      <header className="hero">
+    <main className={`tailor-shell${showResults ? ' has-results' : ''}`}>
+      <header className="tailor-hero">
         <h1>Tailor a Resume for a JD</h1>
-        <p className="subtle">
-          Paste your base resume and a job description. AI analyzes match, rewrites the
-          resume truthfully, drafts the application message, and preps you for the interview.
+        <p className="tailor-sub">
+          Paste a resume + a JD. AI scores the match, rewrites the resume, drafts the
+          application message, and preps you for the interview.
         </p>
       </header>
 
       {error ? <div className="error-banner" role="alert">{error}</div> : null}
 
-      <section className="form-section">
-        <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="resume">Your current resume</label>
+      {compactForm ? (
+        <button
+          type="button"
+          className="form-summary"
+          onClick={() => setFormCollapsed(false)}
+          aria-expanded="false"
+          aria-controls="tailor-form"
+          title="Click to re-expand and edit inputs"
+        >
+          <span className="form-summary-bits">
+            <span><strong>Resume:</strong> {resume.length.toLocaleString()} chars</span>
+            <span className="dot">·</span>
+            <span><strong>JD:</strong> {jobDescription.length.toLocaleString()} chars</span>
+            <span className="dot">·</span>
+            <span><strong>Platform:</strong> {platformLabel(platform)}</span>
+          </span>
+          <span className="form-summary-action">Re-analyze ▾</span>
+        </button>
+      ) : (
+        <section
+          id="tailor-form"
+          className={`form-section${showResults ? ' is-secondary' : ''}`}
+        >
+          <form onSubmit={handleSubmit} className="tailor-form">
+            <div className="tailor-grid">
+              <div className="field field-resume">
+                <div className="field-head">
+                  <label htmlFor="resume">Your current resume</label>
+                  <div className="field-head-actions">
+                    <label className={`btn btn-secondary btn-small upload-btn${uploading ? ' is-disabled' : ''}`}>
+                      {uploading ? 'Parsing…' : 'Upload .docx / .pdf'}
+                      <input
+                        type="file"
+                        hidden
+                        accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={handleResumeFileChange}
+                        disabled={uploading}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="link-btn upload-sample"
+                      onClick={() => setResume(SAMPLE_RESUME_PLACEHOLDER)}
+                    >
+                      Use sample
+                    </button>
+                  </div>
+                </div>
 
-            <div className="upload-row">
-              <label className={`btn btn-secondary upload-btn${uploading ? ' is-disabled' : ''}`}>
-                {uploading ? 'Parsing…' : 'Upload .docx or .pdf'}
-                <input
-                  type="file"
-                  hidden
-                  accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  onChange={handleResumeFileChange}
-                  disabled={uploading}
+                <textarea
+                  id="resume"
+                  rows={10}
+                  value={resume}
+                  onChange={(e) => setResume(e.target.value)}
+                  placeholder="Paste your resume here..."
+                  className="tailor-textarea"
                 />
-              </label>
-              <button
-                type="button"
-                className="link-btn upload-sample"
-                onClick={() => setResume(SAMPLE_RESUME_PLACEHOLDER)}
-              >
-                [ Use sample resume ]
-              </button>
-              {uploadStatus ? (
-                <span className="upload-status">{uploadStatus}</span>
-              ) : null}
-              {uploadInfo ? (
-                <span className="upload-info">{uploadInfo}</span>
-              ) : null}
+
+                <div className="field-foot">
+                  {uploadStatus ? (
+                    <span className="upload-status">{uploadStatus}</span>
+                  ) : uploadInfo ? (
+                    <span className="upload-info">{uploadInfo}</span>
+                  ) : (
+                    <span className="upload-hint">
+                      Default resume auto-loads — edit or replace above.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="field field-jd">
+                <div className="field-head">
+                  <label htmlFor="jd">Job description</label>
+                  <span className="field-head-hint">
+                    Paste from LinkedIn / Upwork / company site
+                  </span>
+                </div>
+                <textarea
+                  id="jd"
+                  rows={10}
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste the job description here..."
+                  className="tailor-textarea"
+                />
+                <div className="field-foot">
+                  <span className="upload-hint">
+                    {jobDescription.length.toLocaleString()} chars
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="upload-hint">or paste plain text below ↓</div>
-
-            <textarea
-              id="resume"
-              rows={14}
-              value={resume}
-              onChange={(e) => setResume(e.target.value)}
-              placeholder="Paste your resume here..."
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="jd">
-              Job description (paste from LinkedIn / Upwork / company site / wherever)
-            </label>
-            <textarea
-              id="jd"
-              rows={12}
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the job description here..."
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="platform">Platform</label>
-            <select
-              id="platform"
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-            >
-              {PLATFORM_OPTIONS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="btn" disabled={!canSubmit}>
-              {loading ? 'Analyzing…' : 'Analyze & Tailor'}
-            </button>
-            {loading ? (
-              <span className="loading-status">Analyzing… this usually takes 5-15 seconds.</span>
-            ) : null}
-          </div>
-        </form>
-      </section>
+            <div className="form-actions-row">
+              <div className="form-actions-left">
+                <label htmlFor="platform" className="inline-label">Platform</label>
+                <select
+                  id="platform"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                  className="inline-select"
+                >
+                  {PLATFORM_OPTIONS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-actions-right">
+                {loading ? (
+                  <span className="loading-status">Analyzing… 5-15s</span>
+                ) : null}
+                {showResults && !loading ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setFormCollapsed(true)}
+                  >
+                    Hide form
+                  </button>
+                ) : null}
+                <button type="submit" className="btn" disabled={!canSubmit}>
+                  {loading ? 'Analyzing…' : 'Analyze & Tailor'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </section>
+      )}
 
       {result ? (
         <section className="results-section">
@@ -428,40 +493,44 @@ export default function TailorPage() {
             ))}
           </div>
 
-          {activeTab === 'match' ? (
-            <MatchAnalysisPanel data={result.matchAnalysis} />
-          ) : null}
+          <div className="tab-panel-wrap">
+            {activeTab === 'match' ? (
+              <MatchAnalysisPanel data={result.matchAnalysis} />
+            ) : null}
 
-          {activeTab === 'resume' ? (
-            <TailoredResumePanel
-              data={result.tailoredResume}
-              onCopy={() =>
-                copyToClipboard(tailoredResumeToPlainText(result.tailoredResume), 'resume')
-              }
-              copyStatus={copyStatus.resume}
-              onDownloadDocx={handleDownloadDocx}
-              downloadingDocx={downloadingDocx}
-            />
-          ) : null}
+            {activeTab === 'resume' ? (
+              <TailoredResumePanel
+                data={result.tailoredResume}
+                onCopy={() =>
+                  copyToClipboard(tailoredResumeToPlainText(result.tailoredResume), 'resume')
+                }
+                copyStatus={copyStatus.resume}
+                onDownloadDocx={handleDownloadDocx}
+                downloadingDocx={downloadingDocx}
+              />
+            ) : null}
 
-          {activeTab === 'proposal' ? (
-            <ProposalPanel
-              data={result.proposalOrMessage}
-              copyStatus={copyStatus}
-              onCopyPart={(idx, content) => copyToClipboard(content, `proposal-${idx}`)}
-              onDownloadAll={handleDownloadProposalTxt}
-            />
-          ) : null}
+            {activeTab === 'proposal' ? (
+              <ProposalPanel
+                data={result.proposalOrMessage}
+                copyStatus={copyStatus}
+                onCopyPart={(idx, content) => copyToClipboard(content, `proposal-${idx}`)}
+                onDownloadAll={handleDownloadProposalTxt}
+              />
+            ) : null}
 
-          {activeTab === 'interview' ? (
-            <InterviewPrepPanel data={result.interviewPrep} />
-          ) : null}
+            {activeTab === 'interview' ? (
+              <InterviewPrepPanel data={result.interviewPrep} />
+            ) : null}
+          </div>
         </section>
       ) : null}
 
-      <footer className="footer">
-        <a href="/">← Back to resume variants</a>
-      </footer>
+      {!result ? (
+        <footer className="footer tailor-footer">
+          <a href="/">← Back to resume variants</a>
+        </footer>
+      ) : null}
     </main>
   );
 }
