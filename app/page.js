@@ -9,6 +9,14 @@ export default function HomePage() {
         <p className="subtle">Pick a variant and download as a Word document.</p>
       </header>
 
+      <a href="/tailor" className="tailor-banner">
+        <div className="tailor-banner-text">
+          <strong>Tailor a resume for a specific JD →</strong>
+          <span>Paste a job description and get an AI-tailored resume, proposal, and interview prep.</span>
+        </div>
+        <span className="btn">Try it</span>
+      </a>
+
       <section className="grid">
         {variants.map(v => (
           <article key={v.id} className="card">
