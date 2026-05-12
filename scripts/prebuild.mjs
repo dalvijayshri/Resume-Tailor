@@ -24,7 +24,10 @@ async function main() {
 
     const doc = builder.buildDocument();
     const buffer = await Packer.toBuffer(doc);
-    const outPath = resolve(outDir, `${meta.id}.docx`);
+    // Allow variants to override the on-disk filename (e.g. so the URL is
+    // /downloads/Jayshri_Dalvi_Resume_Original.docx instead of /downloads/v3-elixax-last.docx).
+    const publicName = meta.publicFilename || `${meta.id}.docx`;
+    const outPath = resolve(outDir, publicName);
     await writeFile(outPath, buffer);
 
     console.log(`wrote ${outPath} (${buffer.length} bytes)`);

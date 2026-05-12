@@ -1,6 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+// On mount we auto-load this file from /downloads/ so the textarea is
+// pre-filled with the candidate's canonical resume. Generated at build
+// time by scripts/prebuild.mjs from the v3-elixax-last builder.
+const DEFAULT_RESUME_URL = '/downloads/Jayshri_Dalvi_Resume_Original.docx';
+const DEFAULT_RESUME_FILENAME = 'Jayshri_Dalvi_Resume_Original.docx';
 
 const PLATFORM_OPTIONS = [
   { value: 'linkedin', label: 'LinkedIn' },
@@ -121,6 +127,52 @@ export default function TailorPage() {
   const [uploadStatus, setUploadStatus] = useState(''); // "Uploading foo.docx..." while in flight
   const [uploadInfo, setUploadInfo] = useState(''); // success line, e.g. "Loaded foo.docx (2,341 chars)"
   const [uploading, setUploading] = useState(false);
+
+  // Auto-load the default resume on first mount. Skipped if the user has
+  // already typed/pasted something, or already uploaded a different file.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setUploading(true);
+        setUploadStatus('Loading default resume…');
+        const fileRes = await fetch(DEFAULT_RESUME_URL);
+        if (!fileRes.ok) throw new Error(`fetch ${fileRes.status}`);
+        const blob = await fileRes.blob();
+        const file = new File([blob], DEFAULT_RESUME_FILENAME, {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+        const form = new FormData();
+        form.append('file', file);
+        const parseRes = await fetch('/api/parse-resume', { method: 'POST', body: form });
+        const data = await parseRes.json().catch(() => ({}));
+        if (!parseRes.ok) throw new Error(data?.error || `parse ${parseRes.status}`);
+        if (cancelled) return;
+        // Only fill if the user hasn't typed anything yet.
+        setResume((prev) => (prev ? prev : data.text || ''));
+        setUploadInfo(
+          `✓ Loaded default resume ${DEFAULT_RESUME_FILENAME} (${(data.text || '').length.toLocaleString()} chars) — edit or replace below`
+        );
+        setTimeout(() => !cancelled && setUploadInfo(''), 8000);
+      } catch (err) {
+        // Don't show an alarming red error for a silent default-load failure —
+        // the user can still paste / upload manually.
+        if (!cancelled) {
+          setUploadInfo(`Default resume could not be loaded (${err.message}). Paste or upload below.`);
+          setTimeout(() => !cancelled && setUploadInfo(''), 8000);
+        }
+      } finally {
+        if (!cancelled) {
+          setUploading(false);
+          setUploadStatus('');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canSubmit =
     resume.trim().length > 0 &&

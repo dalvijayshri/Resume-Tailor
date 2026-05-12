@@ -23,7 +23,7 @@ export default function HomePage() {
             <h2>{v.name}</h2>
             <p className="desc">{v.description}</p>
             <p className="meta">{v.filename}</p>
-            <a className="btn" href={`/downloads/${v.id}.docx`} download>
+            <a className="btn" href={`/downloads/${v.publicFilename || v.id + '.docx'}`} download>
               Download .docx
             </a>
           </article>
