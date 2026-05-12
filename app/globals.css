@@ -1049,3 +1049,59 @@ select {
 
   .learn-list li { color: #e2e8f0; }
 }
+
+/* === Resume file upload (above textarea on /tailor) === */
+
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.upload-btn {
+  /* Reuses .btn / .btn-secondary; here we just make the <label> behave like a
+     clickable button and let the hidden <input type="file"> sit inside it. */
+  cursor: pointer;
+  align-self: auto;
+}
+
+.upload-btn.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-btn input[type="file"] {
+  /* Belt-and-braces — already `hidden` in JSX but some browsers still reserve
+     space for the file input. */
+  display: none;
+}
+
+.upload-sample {
+  margin-top: 0;
+}
+
+.upload-status {
+  font-size: 13px;
+  color: #475569;
+  font-style: italic;
+}
+
+.upload-info {
+  font-size: 13px;
+  color: #166534;
+  font-weight: 500;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .upload-status { color: #cbd5e1; }
+  .upload-info { color: #86efac; }
+  .upload-hint { color: #94a3b8; }
+}

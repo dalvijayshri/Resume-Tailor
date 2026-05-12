@@ -117,7 +117,51 @@ export default function TailorPage() {
   const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [copyStatus, setCopyStatus] = useState({});
 
-  const canSubmit = resume.trim().length > 0 && jobDescription.trim().length > 0 && !loading;
+  // File-upload state for /api/parse-resume.
+  const [uploadStatus, setUploadStatus] = useState(''); // "Uploading foo.docx..." while in flight
+  const [uploadInfo, setUploadInfo] = useState(''); // success line, e.g. "Loaded foo.docx (2,341 chars)"
+  const [uploading, setUploading] = useState(false);
+
+  const canSubmit =
+    resume.trim().length > 0 &&
+    jobDescription.trim().length > 0 &&
+    !loading &&
+    !uploading;
+
+  async function handleResumeFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    // Reset the input value so re-selecting the same file fires onChange again.
+    e.target.value = '';
+    if (!file) return;
+
+    setUploading(true);
+    setError('');
+    setUploadInfo('');
+    setUploadStatus(`Uploading ${file.name}...`);
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/parse-resume', {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Upload failed (${res.status})`);
+      }
+      const text = data?.text || '';
+      setResume(text);
+      setUploadInfo(`✓ Loaded ${data.filename || file.name} (${text.length.toLocaleString()} chars)`);
+      // Clear the success line after a few seconds.
+      setTimeout(() => setUploadInfo(''), 6000);
+    } catch (err) {
+      setError(err?.message || 'Failed to parse uploaded file.');
+    } finally {
+      setUploadStatus('');
+      setUploading(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -237,9 +281,36 @@ export default function TailorPage() {
       <section className="form-section">
         <form onSubmit={handleSubmit}>
           <div className="field">
-            <label htmlFor="resume">
-              Your current resume (plain text — paste from .docx, LinkedIn, anywhere)
-            </label>
+            <label htmlFor="resume">Your current resume</label>
+
+            <div className="upload-row">
+              <label className={`btn btn-secondary upload-btn${uploading ? ' is-disabled' : ''}`}>
+                {uploading ? 'Parsing…' : 'Upload .docx or .pdf'}
+                <input
+                  type="file"
+                  hidden
+                  accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={handleResumeFileChange}
+                  disabled={uploading}
+                />
+              </label>
+              <button
+                type="button"
+                className="link-btn upload-sample"
+                onClick={() => setResume(SAMPLE_RESUME_PLACEHOLDER)}
+              >
+                [ Use sample resume ]
+              </button>
+              {uploadStatus ? (
+                <span className="upload-status">{uploadStatus}</span>
+              ) : null}
+              {uploadInfo ? (
+                <span className="upload-info">{uploadInfo}</span>
+              ) : null}
+            </div>
+
+            <div className="upload-hint">or paste plain text below ↓</div>
+
             <textarea
               id="resume"
               rows={14}
@@ -247,13 +318,6 @@ export default function TailorPage() {
               onChange={(e) => setResume(e.target.value)}
               placeholder="Paste your resume here..."
             />
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => setResume(SAMPLE_RESUME_PLACEHOLDER)}
-            >
-              [ Use sample resume ]
-            </button>
           </div>
 
           <div className="field">
