@@ -4,7 +4,7 @@
 
 A small Next.js web app for downloading tailored resume variants on demand. Resume content is defined in code (using [`docx`](https://www.npmjs.com/package/docx)), so I keep multiple variants — Standard, Freelance, Slim — without hand-editing Word documents.
 
-**Live demo:** [resume-tailor.vercel.app](https://resume-tailor.vercel.app) *(update after deploying)*
+**Live demo:** <https://resume-tailor-lovat-nine.vercel.app/>
 
 ## Variants
 
