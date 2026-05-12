@@ -43,58 +43,62 @@ export async function POST(request) {
 }
 
 /**
- * Derive a unique filename for the tailored resume.
+ * Build a unique filename for the tailored resume.
  *
- * Preference order:
- *   1. payload.filenameSlug (the AI is asked to produce this from the JD)
- *   2. derive from name + title as fallback
+ * Format: "<First-Last>_<Company>_<Role>.docx"
+ *   e.g. "Jayshri-Dalvi_LEvate_Senior-NET-Software-Developer.docx"
  *
- * The slug is sanitized to alphanumerics + hyphens only.
- * Output format: "<FirstLast>-<Slug>.docx"
- *   e.g. "Jayshri-Dalvi-levate-senior-net-developer.docx"
+ * Three sections separated by underscores; within each section, words are
+ * joined with hyphens. This makes the filename visually parseable in Explorer
+ * / Finder (you can tell at a glance which part is the company vs the role)
+ * while staying safe across Windows/macOS/Linux.
  */
 function buildFilename(payload) {
-  const personSlug = personSlugFromName(payload.name);
-  let jobSlug = slugify(payload.filenameSlug || payload.title || '');
-  if (!jobSlug) jobSlug = 'tailored';
-
-  // Defensive: if the AI leaked any of the candidate's name tokens into the
-  // job slug, strip them so we don't get "jayshri-dalvi-levate-jayshri-dalvi".
-  const nameTokens = personSlug.split('-').filter((t) => t.length > 1);
-  for (const tok of nameTokens) {
-    jobSlug = jobSlug
-      .replace(new RegExp(`(^|-)${tok}(-|$)`, 'gi'), '$1$2')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
-  if (!jobSlug) jobSlug = 'tailored';
+  const personPart = filenamePart(payload.name || '', 'Resume');
+  const companyPart = filenamePart(payload.targetCompany || '', 'Company');
+  let rolePart = filenamePart(payload.targetRole || payload.title || '', 'Role');
 
   // Cap length so the filename stays reasonable.
-  if (jobSlug.length > 60) jobSlug = jobSlug.slice(0, 60).replace(/-+$/, '');
+  if (rolePart.length > 60) rolePart = rolePart.slice(0, 60).replace(/-+$/, '');
 
-  return `${personSlug}-${jobSlug}.docx`;
+  return `${personPart}_${companyPart}_${rolePart}.docx`;
 }
 
 /**
- * Format the candidate's name as "First-Last" (title case, drop middle initial
- * / middle names). Falls back to "Resume" if the input is unusable.
+ * Convert a natural-language string into a filename-safe section:
+ *   - preserve word casing
+ *   - spaces -> hyphens
+ *   - strip everything except letters, digits, hyphens, periods (for ".NET")
+ *   - collapse consecutive hyphens
+ *   - fall back to `fallback` if the result is empty
+ *
+ * Examples:
+ *   "Senior .NET Software Developer" -> "Senior-.NET-Software-Developer"
+ *   "L'EVATE"                        -> "LEVATE"
+ *   "Jayshri C Dalvi"                -> "Jayshri-C-Dalvi"  (handled below)
  */
-function personSlugFromName(name) {
-  if (typeof name !== 'string') return 'Resume';
-  const tokens = name
-    .replace(/[^A-Za-z\s.\-]/g, '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter((t) => t.replace(/\./g, '').length > 1); // drop "C" / "C."
-  if (tokens.length === 0) return 'Resume';
-  const first = titleCase(tokens[0]);
-  const last = titleCase(tokens[tokens.length - 1]);
-  return tokens.length === 1 ? first : `${first}-${last}`;
-}
+function filenamePart(input, fallback) {
+  if (typeof input !== 'string') return fallback;
+  let s = input.normalize('NFKD');
 
-function titleCase(s) {
-  if (!s) return '';
-  return s[0].toUpperCase() + s.slice(1).toLowerCase();
+  // Preserve "." inside acronyms like ".NET" by replacing only spaces/underscores
+  s = s.replace(/[\s_]+/g, '-');
+
+  // Strip anything that isn't a letter, digit, hyphen, or dot.
+  s = s.replace(/[^A-Za-z0-9.\-]/g, '');
+
+  // Collapse and trim hyphens / leading dots.
+  s = s.replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+
+  // For the name section specifically, drop single-letter middle initials
+  // (e.g. "Jayshri-C-Dalvi" -> "Jayshri-Dalvi").
+  const tokens = s.split('-');
+  if (tokens.length >= 3 && tokens.some((t) => t.replace(/\./g, '').length === 1)) {
+    const compact = tokens.filter((t) => t.replace(/\./g, '').length > 1);
+    if (compact.length >= 2) s = compact.join('-');
+  }
+
+  return s || fallback;
 }
 
 function slugify(str) {
