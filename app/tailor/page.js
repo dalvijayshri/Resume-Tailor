@@ -900,20 +900,23 @@ function TailoredResumePanel({ data, onCopy, copyStatus, onDownloadDocx, downloa
         {Array.isArray(data.projects) && data.projects.length ? (
           <section className="resume-section">
             <h3>Projects</h3>
-            {data.projects.map((p, i) => (
-              <div key={i} className="experience-item">
-                <div className="experience-header">
-                  <strong>{p.name}</strong>
-                  <span className="experience-dates">{p.dates}</span>
+            {data.projects.map((p, i) => {
+              const dates = typeof p.dates === 'string' ? p.dates.trim() : '';
+              return (
+                <div key={i} className="experience-item">
+                  <div className="experience-header">
+                    <strong>{p.name}</strong>
+                    {dates ? <span className="experience-dates">{dates}</span> : null}
+                  </div>
+                  {p.stack ? <div className="experience-role"><em>{p.stack}</em></div> : null}
+                  {Array.isArray(p.bullets) && p.bullets.length ? (
+                    <ul>
+                      {p.bullets.map((b, j) => <li key={j}>{b}</li>)}
+                    </ul>
+                  ) : null}
                 </div>
-                {p.stack ? <div className="experience-role"><em>{p.stack}</em></div> : null}
-                {Array.isArray(p.bullets) && p.bullets.length ? (
-                  <ul>
-                    {p.bullets.map((b, j) => <li key={j}>{b}</li>)}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </section>
         ) : null}
       </div>
