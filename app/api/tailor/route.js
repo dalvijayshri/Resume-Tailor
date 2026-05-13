@@ -1,6 +1,13 @@
 // app/api/tailor/route.js
 // POST /api/tailor
-// Body: { resume: string, jobDescription: string, platform: string }
+// Body:
+//   {
+//     mode?: "individual" | "agency",   // default "individual"
+//     resume?: string,                  // required in individual mode
+//     agencyProfile?: string,           // required in agency mode
+//     jobDescription: string,
+//     platform: string,
+//   }
 // Returns: TailoringResult JSON (see lib/prompts/tailor-system.js for schema).
 
 import { generateTailoring } from '@/lib/ai/gemini';
@@ -16,6 +23,7 @@ const ALLOWED_PLATFORMS = new Set([
   'hubstaff',
   'other',
 ]);
+const ALLOWED_MODES = new Set(['individual', 'agency']);
 
 function badRequest(message) {
   return new Response(JSON.stringify({ error: message }), {
@@ -43,11 +51,30 @@ export async function POST(request) {
     return badRequest('Request body must be a JSON object.');
   }
 
-  const { resume, jobDescription, platform } = body;
+  const { resume, agencyProfile, jobDescription, platform } = body;
+  const rawMode = typeof body.mode === 'string' ? body.mode.trim().toLowerCase() : 'individual';
+  const mode = rawMode || 'individual';
 
-  if (typeof resume !== 'string' || resume.trim().length === 0) {
-    return badRequest('Field "resume" is required and must be a non-empty string.');
+  if (!ALLOWED_MODES.has(mode)) {
+    return badRequest(`Field "mode" must be one of: ${[...ALLOWED_MODES].join(', ')}.`);
   }
+
+  if (mode === 'agency') {
+    if (typeof agencyProfile !== 'string' || agencyProfile.trim().length === 0) {
+      return badRequest('Field "agencyProfile" is required in agency mode and must be a non-empty string.');
+    }
+    if (agencyProfile.length > MAX_LEN) {
+      return badRequest(`Field "agencyProfile" exceeds max length of ${MAX_LEN} characters.`);
+    }
+  } else {
+    if (typeof resume !== 'string' || resume.trim().length === 0) {
+      return badRequest('Field "resume" is required and must be a non-empty string.');
+    }
+    if (resume.length > MAX_LEN) {
+      return badRequest(`Field "resume" exceeds max length of ${MAX_LEN} characters.`);
+    }
+  }
+
   if (typeof jobDescription !== 'string' || jobDescription.trim().length === 0) {
     return badRequest('Field "jobDescription" is required and must be a non-empty string.');
   }
@@ -55,9 +82,6 @@ export async function POST(request) {
     return badRequest('Field "platform" is required and must be a non-empty string.');
   }
 
-  if (resume.length > MAX_LEN) {
-    return badRequest(`Field "resume" exceeds max length of ${MAX_LEN} characters.`);
-  }
   if (jobDescription.length > MAX_LEN) {
     return badRequest(`Field "jobDescription" exceeds max length of ${MAX_LEN} characters.`);
   }
@@ -74,7 +98,9 @@ export async function POST(request) {
 
   try {
     const result = await generateTailoring({
-      resume,
+      mode,
+      resume: mode === 'individual' ? resume : undefined,
+      agencyProfile: mode === 'agency' ? agencyProfile : undefined,
       jobDescription,
       platform: normalizedPlatform,
     });

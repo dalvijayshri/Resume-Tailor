@@ -11,8 +11,8 @@ export default function HomePage() {
 
       <a href="/tailor" className="tailor-banner">
         <div className="tailor-banner-text">
-          <strong>Tailor a resume for a specific JD →</strong>
-          <span>Paste a job description and get an AI-tailored resume, proposal, and interview prep.</span>
+          <strong>Tailor a resume or generate an agency proposal →</strong>
+          <span>Paste a JD and get an AI-tailored resume (individual) or a full proposal — Executive Summary, Scope, Timeline, Investment (agency).</span>
         </div>
         <span className="btn">Try it</span>
       </a>

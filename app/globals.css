@@ -1081,6 +1081,39 @@ select {
   margin-bottom: 4px;
 }
 
+/* Mode toggle (Individual / Agency) on the /tailor page */
+.mode-toggle {
+  display: inline-flex;
+  margin: 16px auto 0;
+  padding: 4px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  gap: 4px;
+}
+
+.mode-toggle-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mode-toggle-btn:hover {
+  color: #0f172a;
+}
+
+.mode-toggle-btn.active {
+  background: #1f4e79;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+}
+
 /* Mobile adjustments for tailor */
 @media (max-width: 720px) {
   .match-columns {
@@ -1341,4 +1374,12 @@ select {
   .form-actions-row { border-top-color: #334155; }
   .inline-label { color: #f1f5f9; }
   .field-head-hint { color: #94a3b8; }
+
+  .mode-toggle { background: #1e293b; }
+  .mode-toggle-btn { color: #94a3b8; }
+  .mode-toggle-btn:hover { color: #f1f5f9; }
+  .mode-toggle-btn.active {
+    background: #60a5fa;
+    color: #0f172a;
+  }
 }

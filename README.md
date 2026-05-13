@@ -43,6 +43,20 @@ Then open <http://localhost:3000>.
 2. Register it in `lib/builders/index.js`
 3. It automatically appears on the home page and at `/api/resume/<id>`
 
+## Agency Proposal Mode
+
+The `/tailor` page has an **Individual / Agency** toggle. In Agency mode it
+takes an agency profile (services, team, case studies, rates) instead of a
+personal resume and produces a structured proposal — Executive Summary,
+Approach, Scope of Work, Deliverables, Timeline, Investment, Why Us — that
+can be downloaded as a polished `.docx`.
+
+- Toggle at the top of `/tailor`, or visit `/tailor?mode=agency` directly
+- Switching modes seeds the textarea with a fillable agency-profile template
+- Same `GEMINI_API_KEY` env var as the individual flow — no new setup
+- Download endpoint: `POST /api/proposal/docx` (accepts the `agencyProposal`
+  payload from the tailor response)
+
 ## Why programmatic resumes
 
 - Single source of truth — no Word-document drift between variants

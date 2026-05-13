@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // On mount we auto-load this file from /downloads/ so the textarea is
 // pre-filled with the candidate's canonical resume. Generated at build
@@ -16,15 +16,67 @@ const PLATFORM_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
-const TABS = [
+// Tab catalog. The "resume" tab is swapped for "proposal-doc" in agency mode.
+const TABS_INDIVIDUAL = [
   { id: 'match', label: 'Match Analysis' },
   { id: 'resume', label: 'Tailored Resume' },
   { id: 'proposal', label: 'Proposal / Message' },
   { id: 'interview', label: 'Interview Prep' },
 ];
 
+const TABS_AGENCY = [
+  { id: 'match', label: 'Match Analysis' },
+  { id: 'proposal-doc', label: 'Agency Proposal' },
+  { id: 'proposal', label: 'Proposal / Message' },
+  { id: 'interview', label: 'Discovery Prep' },
+];
+
 const SAMPLE_RESUME_PLACEHOLDER =
   '(Paste your latest resume here. You can copy text from any of the downloads on the home page — open .docx in Word, select all, copy.)';
+
+// Seed template for the agency-profile textarea. Replaces resume content when
+// the user first switches to Agency mode.
+const AGENCY_PROFILE_TEMPLATE = `Agency Name: [Your Agency Name]
+Tagline: [e.g. Full-stack engineering for fintech & healthcare]
+Headquarters / Timezone: [City, Country · TZ]
+Founded: [Year]
+Team Size: [e.g. 12 engineers + 2 PMs + 1 designer]
+
+== Services ==
+- [Service line 1 — e.g. .NET / Java backend platform builds]
+- [Service line 2 — e.g. React / Next.js frontend & design system]
+- [Service line 3 — e.g. Data engineering on SQL Server, Postgres, Snowflake]
+- [Service line 4 — e.g. AI / LLM integration and RAG pipelines]
+
+== Core Stack ==
+Languages: [C# / .NET, Java / Spring Boot, Python, TypeScript]
+Frontend: [React, Angular, Next.js, Ant Design]
+Data: [SQL Server, Oracle, PostgreSQL, MySQL]
+Cloud / DevOps: [Azure, AWS, GitHub Actions, Docker, Jenkins]
+
+== Case Studies ==
+1. [Client / industry] — [Outcome in one sentence. e.g. "Migrated a 50M-row banking ledger from Oracle to SQL Server with zero downtime over a 6-week engagement."]
+2. [Client / industry] — [Outcome in one sentence.]
+3. [Client / industry] — [Outcome in one sentence.]
+
+== Engagement Models ==
+- Fixed-price builds (defined scope, 4-12 weeks)
+- Time & Materials (ongoing / unknown scope)
+- Embedded squads (1-3 engineers, 3-6 month commitments)
+
+== Rates ==
+Blended rate: [$X/hr]
+Senior engineer: [$Y/hr]
+Tech lead: [$Z/hr]
+
+== Differentiators ==
+- [e.g. Each engagement has a dedicated tech lead + paired senior engineers]
+- [e.g. Discovery-first: 1-week architecture review before any code]
+- [e.g. Sprint demos every two weeks, full code ownership transferred to client]
+- [e.g. SOC 2 Type II compliant, NDA-friendly, US/EU timezone overlap]
+
+== Contact ==
+[Your Name] · [you@agency.com] · [website / linkedin]`;
 
 function verdictClass(verdict) {
   if (verdict === 'apply') return 'verdict-apply';
@@ -116,6 +168,7 @@ function triggerBlobDownload(blob, filename) {
 }
 
 export default function TailorPage() {
+  const [mode, setMode] = useState('individual'); // 'individual' | 'agency'
   const [resume, setResume] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [platform, setPlatform] = useState('linkedin');
@@ -126,6 +179,7 @@ export default function TailorPage() {
 
   const [activeTab, setActiveTab] = useState('match');
   const [downloadingDocx, setDownloadingDocx] = useState(false);
+  const [downloadingProposalDocx, setDownloadingProposalDocx] = useState(false);
   const [copyStatus, setCopyStatus] = useState({});
 
   // Collapse the form once we have results, to free up viewport for the
@@ -137,9 +191,23 @@ export default function TailorPage() {
   const [uploadInfo, setUploadInfo] = useState(''); // success line, e.g. "Loaded foo.docx (2,341 chars)"
   const [uploading, setUploading] = useState(false);
 
-  // Auto-load the default resume on first mount. Skipped if the user has
-  // already typed/pasted something, or already uploaded a different file.
+  // Tracks the last value we auto-seeded into the textarea. Lets us swap
+  // seeds on mode change without clobbering content the user actually typed.
+  const seededRef = useRef('');
+
+  // Seed initial mode from URL ?mode=agency (set by the home page chip).
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const qMode = (params.get('mode') || '').toLowerCase();
+    if (qMode === 'agency') setMode('agency');
+  }, []);
+
+  // Auto-load the default resume on first mount in individual mode. Skipped
+  // if the user has already typed/pasted something, has uploaded a file, or
+  // started in agency mode.
+  useEffect(() => {
+    if (mode !== 'individual') return;
     let cancelled = false;
     (async () => {
       try {
@@ -157,10 +225,15 @@ export default function TailorPage() {
         const data = await parseRes.json().catch(() => ({}));
         if (!parseRes.ok) throw new Error(data?.error || `parse ${parseRes.status}`);
         if (cancelled) return;
+        const text = data.text || '';
         // Only fill if the user hasn't typed anything yet.
-        setResume((prev) => (prev ? prev : data.text || ''));
+        setResume((prev) => {
+          if (prev) return prev;
+          seededRef.current = text;
+          return text;
+        });
         setUploadInfo(
-          `✓ Loaded ${DEFAULT_RESUME_FILENAME} (${(data.text || '').length.toLocaleString()} chars)`
+          `✓ Loaded ${DEFAULT_RESUME_FILENAME} (${text.length.toLocaleString()} chars)`
         );
         setTimeout(() => !cancelled && setUploadInfo(''), 8000);
       } catch (err) {
@@ -180,14 +253,46 @@ export default function TailorPage() {
     return () => {
       cancelled = true;
     };
+    // Only run on first individual-mode mount. Mode switches handle their own
+    // seeding below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleModeChange(nextMode) {
+    if (nextMode === mode) return;
+    // Swap seed text only if the textarea still holds whatever we last seeded
+    // (i.e. the user hasn't edited it). Otherwise keep their content.
+    const userEdited = resume && resume !== seededRef.current;
+    if (nextMode === 'agency') {
+      if (!resume || !userEdited) {
+        setResume(AGENCY_PROFILE_TEMPLATE);
+        seededRef.current = AGENCY_PROFILE_TEMPLATE;
+        setUploadInfo('Seeded agency profile template — edit with your details.');
+        setTimeout(() => setUploadInfo(''), 6000);
+      }
+    } else {
+      // Switching back to individual. If the textarea still holds the agency
+      // template untouched, clear it so the user can paste a resume (or the
+      // auto-load mount effect would have already populated it on first
+      // render in individual mode).
+      if (resume === AGENCY_PROFILE_TEMPLATE) {
+        setResume('');
+        seededRef.current = '';
+      }
+    }
+    setMode(nextMode);
+    // Reset results: tab list and download targets differ between modes.
+    setResult(null);
+    setActiveTab('match');
+  }
 
   const canSubmit =
     resume.trim().length > 0 &&
     jobDescription.trim().length > 0 &&
     !loading &&
     !uploading;
+
+  const tabs = mode === 'agency' ? TABS_AGENCY : TABS_INDIVIDUAL;
 
   async function handleResumeFileChange(e) {
     const file = e.target.files && e.target.files[0];
@@ -232,10 +337,14 @@ export default function TailorPage() {
     setResult(null);
 
     try {
+      const body =
+        mode === 'agency'
+          ? { mode, agencyProfile: resume, jobDescription, platform }
+          : { mode, resume, jobDescription, platform };
       const res = await fetch('/api/tailor', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ resume, jobDescription, platform }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Tailoring failed');
@@ -267,6 +376,36 @@ export default function TailorPage() {
       flashCopy(key);
     } catch (err) {
       setCopyStatus((s) => ({ ...s, [key]: 'Copy failed' }));
+    }
+  }
+
+  async function handleDownloadProposalDocx() {
+    if (!result?.agencyProposal) return;
+    setDownloadingProposalDocx(true);
+    setError('');
+    try {
+      const res = await fetch('/api/proposal/docx', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(result.agencyProposal),
+      });
+      if (!res.ok) {
+        let msg = 'Failed to generate proposal .docx';
+        try {
+          const j = await res.json();
+          if (j?.error) msg = j.error;
+        } catch (_) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const filename =
+        filenameFromContentDisposition(res.headers.get('content-disposition')) ||
+        'Agency-Proposal.docx';
+      const blob = await res.blob();
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      setError(err.message || 'Download failed');
+    } finally {
+      setDownloadingProposalDocx(false);
     }
   }
 
@@ -335,11 +474,36 @@ export default function TailorPage() {
   return (
     <main className={`tailor-shell${showResults ? ' has-results' : ''}`}>
       <header className="tailor-hero">
-        <h1>Tailor a Resume for a JD</h1>
+        <h1>
+          {mode === 'agency'
+            ? 'Generate an Agency Proposal for a JD'
+            : 'Tailor a Resume for a JD'}
+        </h1>
         <p className="tailor-sub">
-          Paste a resume + a JD. AI scores the match, rewrites the resume, drafts the
-          application message, and preps you for the interview.
+          {mode === 'agency'
+            ? 'Paste your agency profile + a JD. AI scores the fit and drafts a full proposal — Executive Summary, Approach, Scope, Deliverables, Timeline, Investment.'
+            : 'Paste a resume + a JD. AI scores the match, rewrites the resume, drafts the application message, and preps you for the interview.'}
         </p>
+        <div className="mode-toggle" role="tablist" aria-label="Application mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'individual'}
+            className={`mode-toggle-btn${mode === 'individual' ? ' active' : ''}`}
+            onClick={() => handleModeChange('individual')}
+          >
+            Individual
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'agency'}
+            className={`mode-toggle-btn${mode === 'agency' ? ' active' : ''}`}
+            onClick={() => handleModeChange('agency')}
+          >
+            Agency
+          </button>
+        </div>
       </header>
 
       {error ? <div className="error-banner" role="alert">{error}</div> : null}
@@ -354,7 +518,12 @@ export default function TailorPage() {
           title="Click to re-expand and edit inputs"
         >
           <span className="form-summary-bits">
-            <span><strong>Resume:</strong> {resume.length.toLocaleString()} chars</span>
+            <span><strong>Mode:</strong> {mode === 'agency' ? 'Agency' : 'Individual'}</span>
+            <span className="dot">·</span>
+            <span>
+              <strong>{mode === 'agency' ? 'Profile' : 'Resume'}:</strong>{' '}
+              {resume.length.toLocaleString()} chars
+            </span>
             <span className="dot">·</span>
             <span><strong>JD:</strong> {jobDescription.length.toLocaleString()} chars</span>
             <span className="dot">·</span>
@@ -371,25 +540,42 @@ export default function TailorPage() {
             <div className="tailor-grid">
               <div className="field field-resume">
                 <div className="field-head">
-                  <label htmlFor="resume">Your current resume</label>
+                  <label htmlFor="resume">
+                    {mode === 'agency' ? 'Your agency profile' : 'Your current resume'}
+                  </label>
                   <div className="field-head-actions">
-                    <label className={`btn btn-secondary btn-small upload-btn${uploading ? ' is-disabled' : ''}`}>
-                      {uploading ? 'Parsing…' : 'Upload .docx / .pdf'}
-                      <input
-                        type="file"
-                        hidden
-                        accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        onChange={handleResumeFileChange}
-                        disabled={uploading}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="link-btn upload-sample"
-                      onClick={() => setResume(SAMPLE_RESUME_PLACEHOLDER)}
-                    >
-                      Use sample
-                    </button>
+                    {mode === 'agency' ? (
+                      <button
+                        type="button"
+                        className="link-btn upload-sample"
+                        onClick={() => {
+                          setResume(AGENCY_PROFILE_TEMPLATE);
+                          seededRef.current = AGENCY_PROFILE_TEMPLATE;
+                        }}
+                      >
+                        Reset template
+                      </button>
+                    ) : (
+                      <>
+                        <label className={`btn btn-secondary btn-small upload-btn${uploading ? ' is-disabled' : ''}`}>
+                          {uploading ? 'Parsing…' : 'Upload .docx / .pdf'}
+                          <input
+                            type="file"
+                            hidden
+                            accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            onChange={handleResumeFileChange}
+                            disabled={uploading}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="link-btn upload-sample"
+                          onClick={() => setResume(SAMPLE_RESUME_PLACEHOLDER)}
+                        >
+                          Use sample
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -398,7 +584,11 @@ export default function TailorPage() {
                   rows={10}
                   value={resume}
                   onChange={(e) => setResume(e.target.value)}
-                  placeholder="Paste your resume here..."
+                  placeholder={
+                    mode === 'agency'
+                      ? 'Paste your agency profile here (services, team, case studies, rates)…'
+                      : 'Paste your resume here...'
+                  }
                   className="tailor-textarea"
                 />
 
@@ -409,7 +599,9 @@ export default function TailorPage() {
                     <span className="upload-info">{uploadInfo}</span>
                   ) : (
                     <span className="upload-hint">
-                      Default resume auto-loads — edit or replace above.
+                      {mode === 'agency'
+                        ? 'Edit the template above with your agency details.'
+                        : 'Default resume auto-loads — edit or replace above.'}
                     </span>
                   )}
                 </div>
@@ -479,7 +671,7 @@ export default function TailorPage() {
       {result ? (
         <section className="results-section">
           <div className="tab-bar" role="tablist">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -507,6 +699,14 @@ export default function TailorPage() {
                 copyStatus={copyStatus.resume}
                 onDownloadDocx={handleDownloadDocx}
                 downloadingDocx={downloadingDocx}
+              />
+            ) : null}
+
+            {activeTab === 'proposal-doc' ? (
+              <AgencyProposalPanel
+                data={result.agencyProposal}
+                onDownloadDocx={handleDownloadProposalDocx}
+                downloadingDocx={downloadingProposalDocx}
               />
             ) : null}
 
@@ -748,6 +948,145 @@ function ProposalPanel({ data, copyStatus, onCopyPart, onDownloadAll }) {
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AgencyProposalPanel({ data, onDownloadDocx, downloadingDocx }) {
+  if (!data) {
+    return (
+      <div className="tab-panel">
+        <p className="chip-empty">
+          The model didn't return an agencyProposal block. Switch to Agency mode and re-run, or check the Proposal / Message tab.
+        </p>
+      </div>
+    );
+  }
+
+  const {
+    agencyName, clientName, projectTitle, executiveSummary,
+    approach, scopeOfWork, deliverables, timeline, investment, whyUs, contact,
+  } = data;
+
+  return (
+    <div className="tab-panel">
+      <div className="resume-actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={onDownloadDocx}
+          disabled={downloadingDocx}
+        >
+          {downloadingDocx ? 'Generating…' : 'Download Proposal .docx'}
+        </button>
+      </div>
+
+      <div className="resume-preview">
+        <div className="resume-header">
+          {agencyName ? <h2 className="resume-name">{agencyName}</h2> : null}
+          {clientName ? (
+            <div className="resume-title">Proposal for {clientName}</div>
+          ) : null}
+          {projectTitle ? (
+            <div className="resume-tagline">{projectTitle}</div>
+          ) : null}
+        </div>
+
+        {executiveSummary ? (
+          <section className="resume-section">
+            <h3>Executive Summary</h3>
+            <p>{executiveSummary}</p>
+          </section>
+        ) : null}
+
+        {Array.isArray(approach) && approach.length ? (
+          <section className="resume-section">
+            <h3>Our Approach</h3>
+            <ul>
+              {approach.map((a, i) => <li key={i}>{a}</li>)}
+            </ul>
+          </section>
+        ) : null}
+
+        {Array.isArray(scopeOfWork) && scopeOfWork.length ? (
+          <section className="resume-section">
+            <h3>Scope of Work</h3>
+            {scopeOfWork.map((group, i) => (
+              <div key={i} className="experience-item">
+                {group?.title ? (
+                  <div className="experience-header">
+                    <strong>{group.title}</strong>
+                  </div>
+                ) : null}
+                {Array.isArray(group?.items) && group.items.length ? (
+                  <ul>
+                    {group.items.map((it, j) => <li key={j}>{it}</li>)}
+                  </ul>
+                ) : null}
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {Array.isArray(deliverables) && deliverables.length ? (
+          <section className="resume-section">
+            <h3>Deliverables</h3>
+            <ul>
+              {deliverables.map((d, i) => <li key={i}>{d}</li>)}
+            </ul>
+          </section>
+        ) : null}
+
+        {Array.isArray(timeline) && timeline.length ? (
+          <section className="resume-section">
+            <h3>Timeline</h3>
+            {timeline.map((phase, i) => (
+              <div key={i} className="experience-item">
+                <div className="experience-header">
+                  <strong>{phase?.phase}</strong>
+                  <span className="experience-dates">{phase?.duration}</span>
+                </div>
+                {phase?.description ? <p>{phase.description}</p> : null}
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+        {investment && (investment.model || investment.range) ? (
+          <section className="resume-section">
+            <h3>Investment</h3>
+            <table className="skills-table">
+              <tbody>
+                {investment.model ? (
+                  <tr><th>Model</th><td>{investment.model}</td></tr>
+                ) : null}
+                {investment.range ? (
+                  <tr><th>Range</th><td>{investment.range}</td></tr>
+                ) : null}
+                {investment.notes ? (
+                  <tr><th>Notes</th><td>{investment.notes}</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </section>
+        ) : null}
+
+        {Array.isArray(whyUs) && whyUs.length ? (
+          <section className="resume-section">
+            <h3>Why Us</h3>
+            <ul>
+              {whyUs.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </section>
+        ) : null}
+
+        {contact ? (
+          <section className="resume-section">
+            <h3>Contact</h3>
+            <p>{contact}</p>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }
