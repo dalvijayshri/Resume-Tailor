@@ -346,8 +346,28 @@ export default function TailorPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Tailoring failed');
+
+      // The API normally returns JSON (success or error). But under a
+      // platform-level failure (Vercel function timeout, cold-start crash,
+      // edge-network 502) the body comes back as plain text/HTML that
+      // starts with "An error occurred…". Parse defensively so we surface
+      // a useful message instead of a JSON SyntaxError.
+      const rawText = await res.text();
+      let data;
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        const snippet = rawText.slice(0, 160).trim();
+        const hint =
+          res.status === 504 || res.status === 408
+            ? 'Vercel function timeout — the Gemini call exceeded the platform limit. Try a shorter JD / resume, or retry in a moment.'
+            : res.status >= 500
+              ? 'Server returned a non-JSON error. This is usually a Vercel function timeout (>10s on Hobby, >60s on Pro) or a cold-start crash. Retry once; if it persists, check the Vercel Functions log.'
+              : `Server returned a non-JSON response (HTTP ${res.status}).`;
+        throw new Error(`${hint}${snippet ? ` — body starts: "${snippet}…"` : ''}`);
+      }
+
+      if (!res.ok) throw new Error(data.error || `Tailoring failed (HTTP ${res.status})`);
       setResult(data);
       setActiveTab('match');
       // Collapse the form once we have something useful below it.
