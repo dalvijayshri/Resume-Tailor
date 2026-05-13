@@ -204,10 +204,19 @@ function validateTailoredResume(data) {
       if (!p || typeof p !== 'object') {
         return `projects[${i}] must be an object.`;
       }
+      // name + dates: must be strings (dates may be empty for the ongoing-
+      // learning framing). stack: required AND non-empty — every project
+      // must declare the technologies used.
       for (const key of ['name', 'dates', 'stack']) {
         if (typeof p[key] !== 'string') {
           return `projects[${i}].${key} must be a string.`;
         }
+      }
+      if (typeof p.name !== 'string' || p.name.trim() === '') {
+        return `projects[${i}].name is required and must be a non-empty string.`;
+      }
+      if (typeof p.stack !== 'string' || p.stack.trim() === '') {
+        return `projects[${i}].stack is required and must be a non-empty string (tech stack used in the project).`;
       }
       if (!Array.isArray(p.bullets)) {
         return `projects[${i}].bullets must be an array.`;
