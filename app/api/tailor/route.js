@@ -10,7 +10,7 @@
 //   }
 // Returns: TailoringResult JSON (see lib/prompts/tailor-system.js for schema).
 
-import { generateTailoring } from '@/lib/ai/gemini';
+import { generateTailoring } from '@/lib/ai/llm';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -112,15 +112,18 @@ export async function POST(request) {
   } catch (err) {
     const message = err?.message || 'Unknown error';
 
-    // Map known error shapes from the Gemini wrapper to appropriate HTTP codes.
-    if (/GEMINI_API_KEY is not set/i.test(message)) {
+    // Map known error shapes from the LLM wrapper to appropriate HTTP codes.
+    if (/GROQ_API_KEY is not set|GEMINI_API_KEY is not set/i.test(message)) {
       return serverError(message, 500);
     }
-    if (/quota|rate.?limit/i.test(message)) {
+    if (/quota|rate.?limit|429/i.test(message)) {
       return serverError(message, 429);
     }
-    if (/unauthorized|api key/i.test(message)) {
+    if (/unauthorized|api key|rejected/i.test(message)) {
       return serverError(message, 502);
+    }
+    if (/overloaded|503|502/i.test(message)) {
+      return serverError(message, 503);
     }
     if (/parse|JSON/i.test(message)) {
       return serverError(`Model returned malformed output: ${message}`, 502);

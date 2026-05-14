@@ -360,7 +360,7 @@ export default function TailorPage() {
         const snippet = rawText.slice(0, 160).trim();
         const hint =
           res.status === 504 || res.status === 408
-            ? 'Vercel function timeout — the Gemini call exceeded the platform limit. Try a shorter JD / resume, or retry in a moment.'
+            ? 'Vercel function timeout — the LLM call exceeded the platform limit. Try a shorter JD / resume, or retry in a moment.'
             : res.status >= 500
               ? 'Server returned a non-JSON error. This is usually a Vercel function timeout (>10s on Hobby, >60s on Pro) or a cold-start crash. Retry once; if it persists, check the Vercel Functions log.'
               : `Server returned a non-JSON response (HTTP ${res.status}).`;

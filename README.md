@@ -53,7 +53,7 @@ can be downloaded as a polished `.docx`.
 
 - Toggle at the top of `/tailor`, or visit `/tailor?mode=agency` directly
 - Switching modes seeds the textarea with a fillable agency-profile template
-- Same `GEMINI_API_KEY` env var as the individual flow — no new setup
+- Same `GROQ_API_KEY` env var as the individual flow — no new setup
 - Download endpoint: `POST /api/proposal/docx` (accepts the `agencyProposal`
   payload from the tailor response)
 
