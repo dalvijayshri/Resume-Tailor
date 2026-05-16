@@ -1191,13 +1191,32 @@ function InterviewPrepPanel({ data }) {
   if (!data) return null;
   return (
     <div className="tab-panel">
+      {Array.isArray(data.businessWorkflowTalkingPoints) && data.businessWorkflowTalkingPoints.length ? (
+        <section className="interview-section">
+          <h3>Business workflow talking points</h3>
+          <ul className="learn-list">
+            {data.businessWorkflowTalkingPoints.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        </section>
+      ) : null}
+
+      {Array.isArray(data.architectureDiscussionPoints) && data.architectureDiscussionPoints.length ? (
+        <section className="interview-section">
+          <h3>Architecture discussion points</h3>
+          <ul className="learn-list">
+            {data.architectureDiscussionPoints.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        </section>
+      ) : null}
+
       {Array.isArray(data.likelyQuestions) && data.likelyQuestions.length ? (
         <section className="interview-section">
           <h3>Likely questions</h3>
           {data.likelyQuestions.map((q, i) => (
             <div key={i} className="interview-question">
               <h4>{q.question}</h4>
-              <p>{q.talkingPoints}</p>
+              {/* Prefer the new `answer` field; fall back to legacy `talkingPoints`. */}
+              <p>{q.answer || q.talkingPoints}</p>
             </div>
           ))}
         </section>
