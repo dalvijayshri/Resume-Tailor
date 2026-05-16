@@ -17,6 +17,14 @@ export default function HomePage() {
         <span className="btn">Try it</span>
       </a>
 
+      <a href="/portfolio" className="tailor-banner">
+        <div className="tailor-banner-text">
+          <strong>Enterprise Implementation Portfolio →</strong>
+          <span>Operational dashboards, workflow screens, and architecture overviews across 9 enterprise engagements — Healthcare, Banking, AI Automation, SaaS Modernization.</span>
+        </div>
+        <span className="btn">View</span>
+      </a>
+
       <section className="grid">
         {variants.map(v => (
           <article key={v.id} className="card">
