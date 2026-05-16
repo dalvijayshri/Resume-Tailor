@@ -180,6 +180,7 @@ export default function TailorPage() {
   const [activeTab, setActiveTab] = useState('match');
   const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [downloadingProposalDocx, setDownloadingProposalDocx] = useState(false);
+  const [downloadingCoverLetter, setDownloadingCoverLetter] = useState(false);
   const [copyStatus, setCopyStatus] = useState({});
 
   // Collapse the form once we have results, to free up viewport for the
@@ -396,6 +397,59 @@ export default function TailorPage() {
       flashCopy(key);
     } catch (err) {
       setCopyStatus((s) => ({ ...s, [key]: 'Copy failed' }));
+    }
+  }
+
+  async function handleDownloadCoverLetterDocx() {
+    if (!result?.coverLetter || !result?.tailoredResume) return;
+    setDownloadingCoverLetter(true);
+    setError('');
+    try {
+      const tr = result.tailoredResume;
+      const cl = result.coverLetter;
+      // Compose the senior 10+ year title — preserve the candidate's own
+      // title from the resume if it already encodes seniority, otherwise
+      // bolt on the experience tag.
+      const baseTitle = (tr.title || '').trim();
+      const applicantTitle = /years|10\+|senior|lead/i.test(baseTitle)
+        ? baseTitle
+        : `${baseTitle || 'Senior Full Stack Developer'} · 10+ Years`;
+
+      const payload = {
+        applicantName: tr.name || 'Jayshri Dalvi',
+        applicantTitle,
+        contact: tr.contact || '',
+        clientName: tr.targetCompany || '',
+        recipientName: 'Hiring Team',
+        subject: cl.subject || `Application: ${tr.targetRole || tr.title || 'Open Role'}`,
+        greeting: cl.greeting || 'Dear Hiring Team,',
+        body: Array.isArray(cl.body) ? cl.body : [String(cl.body || '')],
+        closing: cl.closing || 'Looking forward to discussing how I can contribute to your team.',
+        signature: cl.signature || `Sincerely,\n${tr.name || 'Jayshri Dalvi'}`,
+      };
+
+      const res = await fetch('/api/proposal/individual/docx', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        let msg = 'Failed to generate cover-letter .docx';
+        try {
+          const j = await res.json();
+          if (j?.error) msg = j.error;
+        } catch (_) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const filename =
+        filenameFromContentDisposition(res.headers.get('content-disposition')) ||
+        'Cover-Letter.docx';
+      const blob = await res.blob();
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      setError(err.message || 'Download failed');
+    } finally {
+      setDownloadingCoverLetter(false);
     }
   }
 
@@ -736,6 +790,9 @@ export default function TailorPage() {
                 copyStatus={copyStatus}
                 onCopyPart={(idx, content) => copyToClipboard(content, `proposal-${idx}`)}
                 onDownloadAll={handleDownloadProposalTxt}
+                showCoverLetterDownload={mode === 'individual' && !!result.coverLetter}
+                onDownloadCoverLetter={handleDownloadCoverLetterDocx}
+                downloadingCoverLetter={downloadingCoverLetter}
               />
             ) : null}
 
@@ -944,11 +1001,27 @@ function TailoredResumePanel({ data, onCopy, copyStatus, onDownloadDocx, downloa
   );
 }
 
-function ProposalPanel({ data, copyStatus, onCopyPart, onDownloadAll }) {
+function ProposalPanel({
+  data, copyStatus, onCopyPart, onDownloadAll,
+  showCoverLetterDownload, onDownloadCoverLetter, downloadingCoverLetter,
+}) {
   if (!data) return null;
   const parts = data.parts || [];
   return (
     <div className="tab-panel">
+      {showCoverLetterDownload ? (
+        <div className="proposal-actions" style={{ marginBottom: 16 }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={onDownloadCoverLetter}
+            disabled={downloadingCoverLetter}
+          >
+            {downloadingCoverLetter ? 'Generating…' : 'Download Cover Letter .docx'}
+          </button>
+        </div>
+      ) : null}
+
       {parts.map((part, i) => (
         <div key={i} className="proposal-part">
           <div className="proposal-part-header">
@@ -966,7 +1039,7 @@ function ProposalPanel({ data, copyStatus, onCopyPart, onDownloadAll }) {
       ))}
       {parts.length ? (
         <div className="proposal-actions">
-          <button type="button" className="btn" onClick={onDownloadAll}>
+          <button type="button" className="btn btn-secondary" onClick={onDownloadAll}>
             Download all as .txt
           </button>
         </div>
