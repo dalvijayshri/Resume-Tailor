@@ -26,6 +26,6 @@ jobs:
         run: npm run build
 
       - name: Verify pre-generated downloads
-        # 4 builder-generated resume variants + 1 static master profile copied
-        # from /assets/ by scripts/prebuild.mjs = 5 .docx files.
+        # 5 builder-generated variants in lib/builders/:
+        #   enterprise-master-profile, v3, v3-elixax-last, freelance, freelance-slim
         run: test $(ls public/downloads/*.docx | wc -l) -eq 5 || (echo "Expected 5 .docx files in public/downloads" && exit 1)

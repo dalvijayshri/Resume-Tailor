@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 
 // On mount we auto-load the candidate's enterprise master profile into
 // the textarea — this is the source-of-truth corpus the AI tailors from,
-// not a polished submittable resume. It's a richer document than any one
-// 2-page variant, giving the model more raw material to draw on. The
-// file is committed under /assets/ and copied to /downloads/ at build
-// time by scripts/prebuild.mjs.
-const DEFAULT_RESUME_URL = '/downloads/Jayshri_Dalvi_Master_Profile.docx';
-const DEFAULT_RESUME_FILENAME = 'Jayshri_Dalvi_Master_Profile.docx';
+// not a polished submittable resume. Generated programmatically by
+// lib/builders/enterprise-master-profile.js, so content lives in code
+// (easy to evolve) and prebuild keeps the .docx fresh on every build.
+const DEFAULT_RESUME_URL = '/downloads/Jayshri-Dalvi-Enterprise-Master-Profile.docx';
+const DEFAULT_RESUME_FILENAME = 'Jayshri-Dalvi-Enterprise-Master-Profile.docx';
 
 const PLATFORM_OPTIONS = [
   { value: 'linkedin', label: 'LinkedIn' },
