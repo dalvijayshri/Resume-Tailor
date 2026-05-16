@@ -15,6 +15,11 @@ resume_verify*/
 *.docx
 *.pdf
 
+# Static source-of-truth assets (e.g. the enterprise master profile)
+# must be tracked even though they're .docx — re-include them.
+!assets/*.docx
+!assets/*.pdf
+
 # Pre-generated static downloads (produced by scripts/prebuild.mjs)
 public/downloads/
 
